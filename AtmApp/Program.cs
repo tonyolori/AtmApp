@@ -1,21 +1,33 @@
 ﻿
 using AtmApp;
+using AtmApp.Messages;
+using AtmApp.User;
 
-List<UserAccount> accounts = new List<UserAccount>{
-            //accountNumber, balance, pin
-            new UserAccount(1001, 50000, 1234),
-            new UserAccount(1002, 100000, 5678),
-            new UserAccount(1003, 200000, 9012),
-            new UserAccount(1004, 200000, 9032),
+List<string> possibleEndOptions = new() { "yes", "y", "n", "no" };
+List<int> switchCaseList = new() { 1, 2, 3, 4, 5, 6, 7, 8 };
+IMessages outputmessages = Factory.CreateMessages();
+IInputValidator validator = Factory.CreateValidator();
 
-        };
 
-List<uint> accountNumberList = UserAccount.GetAccountNumberlist(accounts);
+outputmessages.WelcomeGreeting();
 
-Console.WriteLine("Welcome to the Atm");
+int choice = validator.LoopValidateFormat(int.Parse, outputmessages);
+
+if (choice == 0)
+{
+    createAccount();
+}
+else if (choice != 1)
+{
+    return;
+}
+UserAccount? user = AccountManager.LoginAsUser();
+
 Console.WriteLine("Please select which account you would be working with");
 
-UserAccount? user = LoginAsUser();
+//project ideas
+//tic tac toe
+//link shortener
 
 if (user == null)
 {
@@ -24,165 +36,157 @@ if (user == null)
 
 while (true)
 {
-    int choice;
-    uint newPin, inputtedAmount;
-
-
+    List<uint> accountNumberList = AccountManager.GetAccountNumberlist();
 
     Console.WriteLine("\nWould you like to:");
-    Console.WriteLine("1. Deposit \n2. Withdraw \n3. Check Balance \n4. Change Pin \n5. Transfer \n6. login to another account\n7. Cancel ");
+    Console.WriteLine("1. Deposit \n2. Withdraw \n3. Check Balance" +
+        " \n4. Change Pin \n5. Transfer \n6. logout \n7. Creation \n8. Cancel");
 
 
     // make sure it is both an int and within the accepted list of inputs
-    while (!int.TryParse(Console.ReadLine(), out choice) && ValidateUserInput<int>(choice, new List<int> { 1, 2, 3, 4, 5 }))
+    while (!validator.ValidateFormat(int.Parse, Console.ReadLine(), out choice)
+        || !validator.ValidateAgainstList(choice, switchCaseList))
     {
-        Console.WriteLine("invalid input");
+        outputmessages.Invalid("number");
     }
+
+    //extra whitespace
     Console.WriteLine();
 
 
     switch (choice)
     {
         case 1: // Deposit branch 
-            Console.WriteLine($"Your account balance is {user.GetBalance()}");
-            Console.WriteLine("Please input your deposit amount");
+            AccountManager.PrintBalance(user);
+            outputmessages.Input("deposit amount");
 
-            while (!uint.TryParse(Console.ReadLine(), out inputtedAmount))
+            //makes sure the user enters a proper uint and returns the uint
+            uint depositAmount = validator.LoopValidateFormat(uint.Parse, outputmessages);
 
+            try
             {
-                Console.WriteLine("Input a valid amount");
+                user.Deposit(depositAmount);
+
+                outputmessages.Success("Deposit");
             }
+            catch
+            {
+                outputmessages.Error("Deposit");
 
-            if (user.Deposit(inputtedAmount))
-            {
-                Console.WriteLine("Amount deposited successfully");
-            }
-            else
-            {
-                Console.WriteLine("error with deposit");
             }
 
             break;
 
         case 2: // Withdrawal branch
-            Console.WriteLine($"Your account balance is {user.GetBalance()}");
-            Console.WriteLine("Please input your withdrawal amount");
+            AccountManager.PrintBalance(user);
+            outputmessages.Input("withdrawal amount");
 
-            //while not a valid int 
-            while (!uint.TryParse(Console.ReadLine(), out inputtedAmount))
+            //get a valid uint number from the user
+            uint withdrawAmount = validator.LoopValidateFormat(uint.Parse, outputmessages);
 
+
+            try
             {
-                Console.WriteLine("Input a valid amount");
+                outputmessages.Success("Withdrawal");
             }
-
-            if (user.Withdraw(inputtedAmount))
+            catch
             {
-                Console.WriteLine("Amount Withdrawn successfully");
-            }
-            else
-            {
-                Console.WriteLine("Withdrawal failed");
+                outputmessages.Error("Withdrawal");
             }
 
             break;
 
         case 3: // Check balance
-            Console.WriteLine($"Your account balance is {user.GetBalance()}");
+            AccountManager.PrintBalance(user);
             break;
 
         case 4:// changepin
-            Console.WriteLine("Enter Your new pin");
+            outputmessages.Input("new Pin");
 
-            while (!uint.TryParse(Console.ReadLine(), out newPin))
+            uint newPin = validator.LoopValidateFormat(uint.Parse, outputmessages);
 
-            {
-                Console.WriteLine("Input a valid Pin, Must be a positive number");
-            }
 
             //make sure the new pin is not the former pin
             if (user.MatchPin(newPin))
             {
+                outputmessages.Error("Pin change");
                 Console.WriteLine("new pin cannot be the same as old pin");
             }
             else
             {
                 user.ChangePin(newPin);
-                Console.WriteLine("Pin changed Sucessfully");
+                outputmessages.Success("Pin change");
             }
             break;
 
-        case 5:// Transfer
+        // Transfer
+        case 5:
             //receive the number 
-            uint accountNumber=0;
-            
-            uint transferAmount = 0;
+            uint accountNumber = 0;
+
             UserAccount receivingUser;
-
-
 
             while (true)
             {
-                Console.WriteLine("Enter the account number you would like to transfer to");
+                //Console.WriteLine("Enter the account number you would like to transfer to");
+                outputmessages.Input("receiving account number");
 
-                bool result = false;
-                while (!result)
-                {
-                    result = uint.TryParse(Console.ReadLine(), out accountNumber);
-                    if (!result)
-                    {
-                        Console.WriteLine("Invalid Number");
-                    }
-                }
+                accountNumber = validator.LoopValidateFormat(uint.Parse, outputmessages);
 
-                //if the number exists then you can exit the loop
-                if (ValidateUserInput(accountNumber, UserAccount.GetAccountNumberlist(accounts)))
+
+                //if the number exists and is not yours then you can exit the loop
+                if (validator.ValidateAgainstList(accountNumber, AccountManager.GetAccountNumberlist())
+                    && accountNumber != user.AccountNumber)
                 {
-                    receivingUser = accounts.First(account => account.GetAccountNumber() == accountNumber);
+                    receivingUser = AccountManager.Accounts.First(account => account.AccountNumber == accountNumber);
                     break;
                 }
-                    Console.WriteLine("invalid account number");
+
+                if (!validator.ValidateAgainstList(accountNumber, AccountManager.GetAccountNumberlist()))
+                {
+                    outputmessages.Invalid("Length, Enter a 10 digit number");
+                }
+                outputmessages.Invalid("account number");
             }
 
 
-            while (true)
+            AccountManager.PrintBalance(user);
+            outputmessages.Input("transfer amount");
+
+            uint transferAmount = validator.LoopValidateFormat(uint.Parse, outputmessages);
+
+            //confirm transfer succeessful then break
+            if (user.Transfer(transferAmount, receivingUser))
             {
-                Console.WriteLine("\nEnter the amount the amount you would like to transfer");
-                Console.WriteLine($"Your current balance is {user.GetBalance()}");
-                bool result = false;
-                while (!result)
-                {
-                    result = uint.TryParse(Console.ReadLine(), out transferAmount);
-                    if (!result)
-                    {
-                        Console.WriteLine("Invalid amount");
-                    }
-                }
-
-                //if the transfer works then you can break
-                if (user.Transfer(transferAmount, receivingUser))
-                {
-                    Console.WriteLine($"Transfer Succesfull, new balance is {user.GetBalance()}");
-                    break;
-                }
-
+                outputmessages.Success("Transfer");
+                AccountManager.PrintBalance(user);
+                break;
+            }
+            else
+            {
+                outputmessages.Error("Transfer");
             }
 
             break;
         case 6:
-            user = LoginAsUser();
+            user = AccountManager.LoginAsUser();
             if (user == null)
                 return;
             break;
         case 7:
+            createAccount();
+            break;
+        case 8:
             break;
         default:
             break;
     }
 
-    Console.WriteLine("\nwould you like to complete another transaction Y/N");
-    string response = Console.ReadLine();
+    outputmessages.Custom("\nwould you like to complete another transaction Y/N");
+    string? response = Console.ReadLine();
 
-    while (!ValidateUserInput<string>(response, new List<string> { "yes", "y", "Y", "N", "n", "no" }))
+    //come fix warning
+    while (!validator.ValidateAgainstList<string>(response?.ToLower(), possibleEndOptions))
     {
         Console.WriteLine("invalid Input!, Try again");
         response = Console.ReadLine();
@@ -194,61 +198,38 @@ while (true)
     }
 
 }
-static bool ValidateUserInput<T>(T givenInput, List<T> acceptedInputs)
+
+
+void createAccount()
 {
-
-    foreach (T e in acceptedInputs)
+    outputmessages.Input("account number");
+    uint inputtedAccountNumber = validator.LoopValidateFormat(uint.Parse, outputmessages);
+    if (validator.ValidateAgainstList(inputtedAccountNumber, AccountManager.GetAccountNumberlist()))
     {
-
-        if (givenInput == null)
-        {
-            return false;
-        }
-
-        else if (givenInput.Equals(e))
-        {
-            return true;
-        }
+        outputmessages.DisplayValidationError("Account number, Account number exists already ");
+        outputmessages.Error("Account Creation");
+        return;
     }
-    return false;
-}
-
-    UserAccount? LoginAsUser()
+    else if (!validator.ValidateLength(inputtedAccountNumber, 10))
     {
-        const int MaxLoginAttempts = 5;
-
-        uint inputtedAccountNumber;
-        Console.WriteLine("Please enter your account number:");
-
-        while (!uint.TryParse(Console.ReadLine(), out inputtedAccountNumber) || !accountNumberList.Contains(inputtedAccountNumber))
-        {
-            Console.WriteLine("Invalid account number or account number does not exist. Please try again:");
-        }
-
-        UserAccount user = accounts.First(account => account.GetAccountNumber() == inputtedAccountNumber);
-
-        Console.WriteLine("Please enter your PIN:");
-        int tries = MaxLoginAttempts;
-
-        while (tries > 0)
-        {
-            if (!uint.TryParse(Console.ReadLine(), out uint entryPin))
-            {
-                Console.WriteLine("Invalid PIN format. Please enter a numeric PIN:");
-                continue;
-            }
-
-            if (user.MatchPin(entryPin))
-            {
-                Console.WriteLine("Login successful. Welcome!");
-                return user;
-            }
-
-            tries--;
-            Console.WriteLine($"Incorrect PIN. {tries} attempts remaining.");
-        }
-
-        Console.WriteLine("Maximum login attempts exceeded. Card swallowed!");
-        return null; // or throw an exception indicating maximum attempts exceeded
+        outputmessages.DisplayValidationError("Account number, account number is not 10 digits ");
+        outputmessages.Error("Account Creation");
+        return;
     }
 
+    outputmessages.Input("Balance, 0 for an Empty starting balance");
+    uint inputtedBalance = validator.LoopValidateFormat(uint.Parse, outputmessages);
+
+
+    outputmessages.Input("4 digit Pin");
+    uint inputtedPin = validator.LoopValidateFormat(uint.Parse, outputmessages);
+    if (!validator.ValidateLength(inputtedPin, 4))
+    {
+        outputmessages.DisplayValidationError("Pin, Enter a 4 digit pin");
+        outputmessages.Error("Account Creation");
+        return;
+    }
+
+    AccountManager.Createuser(inputtedAccountNumber, inputtedBalance, inputtedPin);
+
+} 
