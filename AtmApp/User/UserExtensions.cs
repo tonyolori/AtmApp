@@ -14,6 +14,7 @@ namespace AtmApp.User
         public static void Deposit(this UserAccount user, uint amount)
         {
             user.Balance += amount;
+            AccountManager.Update(user);
             return;
         }
 
@@ -23,6 +24,7 @@ namespace AtmApp.User
             if (user.Balance - amount >= 0)
             {
                 user.Balance -= amount;
+                AccountManager.Update(user);
             }
 
             else
@@ -40,6 +42,8 @@ namespace AtmApp.User
             {
                 user.Withdraw(amount);
                 receiver.Deposit(amount);
+                AccountManager.Update(user);
+                AccountManager.Update(receiver);
                 return true;
             }
             catch
@@ -62,12 +66,13 @@ namespace AtmApp.User
         public static void ChangePin(this UserAccount user, uint newPin)
         {
             user.Pin = newPin;
+            AccountManager.Update(user);
         }
 
 
         public static UserAccount Login(this UserAccount user)
         {
-            int MaxLoginAttempts = 5;
+            int MaxLoginAttempts = 4;
 
             messages.Input("pin");
 
@@ -76,7 +81,8 @@ namespace AtmApp.User
                 
                 if (!Validator.ValidateFormat(uint.Parse, Console.ReadLine(), out uint entryPin))
                 {
-                    messages.Invalid("Pin format");
+                    MaxLoginAttempts--;
+                    messages.DisplayValidationError("Pin format. {MaxLoginAttempts} attempts remaining");
                     continue;
                 }
 

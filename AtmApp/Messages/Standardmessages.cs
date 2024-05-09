@@ -19,11 +19,13 @@
 *                                                  *
 *                                                  *
 *              WELCOME TO YOUR ATM                 *
-*                   Press 1                        *
+*                   Press 2                        *
 *             to begin your transaction            *
 *                                                  *
-*                   Or 0  to                       *
+*                    1  to                         *
 *               Create an account                  *
+*                                                  * 
+*                   0 to cancel                    *
 ****************************************************
 ";
 

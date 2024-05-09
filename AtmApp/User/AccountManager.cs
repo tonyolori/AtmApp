@@ -6,13 +6,7 @@ namespace AtmApp
     {
         private static readonly IMessages Messages = Factory.CreateMessages();
         private static readonly IInputValidator Validator = Factory.CreateValidator();
-        public static readonly List<UserAccount> Accounts = new (){
-            //accountNumber, balance, pin
-            new UserAccount{AccountNumber = 1234567892, Balance =  100000, Pin = 5678 },
-            new UserAccount{AccountNumber = 1234567893, Balance =  200000, Pin = 9012 },
-            new UserAccount{AccountNumber = 1234567894, Balance =  200000, Pin = 9032 },
-            new UserAccount{AccountNumber = 1234567891, Balance =  50000, Pin = 1234 },
-        };
+        public static readonly List<UserAccount> Accounts = GetAccounts();
 
         public static List<uint> GetAccountNumberlist()
         {
@@ -28,13 +22,39 @@ namespace AtmApp
 
         public static void Createuser(uint accountNumber, uint balance, uint pin)
         {
-            Accounts.Add(new UserAccount { AccountNumber = accountNumber, Balance = balance, Pin = pin });
+            UserAccount newAccount = new UserAccount { AccountNumber = accountNumber, Balance = balance, Pin = pin };
+            Accounts.Add(newAccount);
+            FileIO.write(new List<UserAccount> { newAccount });
+        }
+
+        public static void Update(UserAccount updatedAccount)
+        {
+            FileIO.Update(updatedAccount);
+        }
+
+        public static List<UserAccount> GetAccounts()
+        {
+            // question, should i handle exceptions that could occur if the data is messed up? 
+            // or would it better for the app to crash if the core data is somehow corrupted?
+            // cause what would it load, if it runs.
+            return FileIO.Read();
+        }
+
+        public static void AddAccounts(List<UserAccount> accounts)
+        {
+            // Read existing accounts from CSV file
+            List<UserAccount> existingAccounts = GetAccounts();
+
+            // Filter accounts to be added that don't already exist
+            List<UserAccount> newAccounts = accounts.Where(account => !existingAccounts.Any(existing => existing.AccountNumber == account.AccountNumber)).ToList();
+
+            FileIO.write(newAccounts);
         }
 
 
         public static UserAccount? LoginAsUser()
         {
-            int accountNumberlength = 10;
+            int accountNumberLength = 10;
             List<uint> accountNumberList = GetAccountNumberlist();
 
             uint inputtedAccountNumber;
@@ -50,9 +70,9 @@ namespace AtmApp
                 {
                     Messages.Invalid("Account Number ");
                 }
-                else if (inputtedAccountNumber.ToString().Length < accountNumberlength)
+                else if (inputtedAccountNumber.ToString().Length < accountNumberLength)
                 {
-                    Messages.Invalid("Length, Enter a 10 digit number.");
+                    Messages.Invalid("Length, Enter a 10 digit number");
                 }
                 else if(!accountNumberList.Contains(inputtedAccountNumber))
                 {
